@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Планёрка — Бюро</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#090c14;--surface:#111520;--border:#1e2540;
+  --accent:#4f6ef7;--green:#22c55e;--yellow:#f59e0b;
+  --red:#ef4444;--orange:#f97316;--text:#e2e8f0;--muted:#64748b;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow:hidden}
+
+.screen{display:grid;grid-template-rows:auto 1fr auto;height:100vh;padding:24px;gap:16px}
+
+/* Header */
+.top{display:flex;align-items:center;justify-content:space-between}
+.bureau{font-size:15px;color:var(--muted);letter-spacing:2px;text-transform:uppercase}
+.clock{font-size:32px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:2px}
+.date-str{font-size:13px;color:var(--muted);text-align:right;margin-top:2px}
+
+/* Main grid */
+.middle{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:16px}
+
+/* Panel */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;display:flex;flex-direction:column}
+.panel-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:16px}
+
+/* KPI block */
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.kpi-item{background:var(--bg);border-radius:10px;padding:14px}
+.kpi-val{font-size:38px;font-weight:800;line-height:1}
+.kpi-lbl{font-size:11px;color:var(--muted);margin-top:4px}
+.c-blue{color:var(--accent)}.c-green{color:var(--green)}.c-red{color:var(--red)}.c-yellow{color:var(--yellow)}
+
+/* Employee list */
+.emp-list{display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.emp-row{display:flex;align-items:center;gap:10px;font-size:13px}
+.emp-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.dot-ok{background:var(--green)}.dot-warn{background:var(--yellow)}.dot-danger{background:var(--red)}
+.emp-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.emp-tasks{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* Risk list */
+.risk-list{display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.risk-row{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.35}
+.risk-icon{flex-shrink:0;font-size:14px;margin-top:1px}
+.risk-info .proj{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* Agenda */
+.agenda-list{display:flex;flex-direction:column;gap:8px}
+.agenda-row{display:flex;gap:10px;align-items:flex-start;background:var(--bg);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.35}
+.agenda-n{color:var(--accent);font-weight:700;font-size:15px;min-width:20px}
+
+/* AI summary strip */
+.summary-strip{background:var(--surface);border:1px solid var(--accent);border-radius:10px;padding:14px 20px;font-size:13px;color:var(--text);line-height:1.6;display:flex;gap:12px;align-items:flex-start}
+.summary-icon{font-size:18px;flex-shrink:0}
+
+/* Footer */
+.bottom{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--muted)}
+.bottom a{color:var(--muted);text-decoration:none}
+.pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:6px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+.no-data{color:var(--muted);font-size:13px;padding:10px 0}
+</style>
+</head>
+<body>
+<div class="screen">
+
+  <!-- TOP -->
+  <div class="top">
+    <div class="bureau">Проектное бюро · Планёрка</div>
+    <div style="text-align:right">
+      <div class="clock" id="clock">--:--</div>
+      <div class="date-str" id="datestr"></div>
+    </div>
+  </div>
+
+  <!-- MIDDLE -->
+  <div class="middle">
+
+    <!-- Колонка 1: KPI + Загрузка -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="panel">
+        <div class="panel-title">Реестр задач</div>
+        <div class="kpi-grid" id="kpi-grid">
+          <div class="kpi-item"><div class="kpi-val c-blue" id="k-total">—</div><div class="kpi-lbl">Всего задач</div></div>
+          <div class="kpi-item"><div class="kpi-val c-green" id="k-done">—</div><div class="kpi-lbl">Завершено</div></div>
+          <div class="kpi-item"><div class="kpi-val c-red" id="k-overdue">—</div><div class="kpi-lbl">Просрочено</div></div>
+          <div class="kpi-item"><div class="kpi-val c-yellow" id="k-urgent">—</div><div class="kpi-lbl">Срочных (≤7 дн.)</div></div>
+        </div>
+      </div>
+
+      <div class="panel" style="flex:1">
+        <div class="panel-title">Команда</div>
+        <div class="emp-list" id="emp-list"><div class="no-data">Загрузка...</div></div>
+      </div>
+    </div>
+
+    <!-- Колонка 2: Риски -->
+    <div class="panel">
+      <div class="panel-title">Риски и дедлайны</div>
+      <div class="risk-list" id="risk-list"><div class="no-data">Загрузка...</div></div>
+    </div>
+
+    <!-- Колонка 3: Повестка -->
+    <div class="panel">
+      <div class="panel-title">Повестка планёрки</div>
+      <div class="agenda-list" id="agenda-list"><div class="no-data">Ожидание AI-отчёта...</div></div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM: AI summary -->
+  <div>
+    <div class="summary-strip">
+      <div class="summary-icon">🤖</div>
+      <div id="ai-summary">Загрузка данных...</div>
+    </div>
+    <div class="bottom" style="margin-top:10px">
+      <div><span class="pulse"></span>Обновляется каждые 5 мин · <a href="index.html">← Полный дашборд</a></div>
+      <div id="updated-at"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Часы
+function tick(){
+  const now = new Date();
+  const msk = new Date(now.getTime() + (now.getTimezoneOffset()*60 + 3*3600)*1000);
+  document.getElementById('clock').textContent =
+    msk.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('datestr').textContent =
+    msk.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+}
+tick(); setInterval(tick,1000);
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+async function loadData(){
+  let data, report;
+  try{
+    const r = await fetch('data/latest.json?v='+Date.now());
+    if(r.ok) data = await r.json();
+  }catch(_){}
+  try{
+    const r = await fetch('reports/latest_report.json?v='+Date.now());
+    if(r.ok) report = await r.json();
+  }catch(_){}
+
+  if(!data) return;
+
+  // KPI
+  const s  = data.stats?.by_status||{};
+  const rs = data.risks||[];
+  document.getElementById('k-total').textContent  = data.total_tasks||0;
+  document.getElementById('k-done').textContent   = s['завершено']||0;
+  document.getElementById('k-overdue').textContent= rs.filter(r=>r.type==='overdue').length;
+  document.getElementById('k-urgent').textContent = rs.filter(r=>r.type==='urgent').length;
+  document.getElementById('updated-at').textContent = 'Данные: ' +
+    new Date(data.timestamp).toLocaleString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+
+  // Команда
+  const byEmp = data.stats?.by_employee||{};
+  const overloadedAI = new Set((report?.analysis?.overloaded_employees||[]).map(s=>s.split('—')[0].trim()));
+  const empEntries = Object.entries(byEmp).sort((a,b)=>b[1].total-a[1].total).slice(0,12);
+  document.getElementById('emp-list').innerHTML = empEntries.length
+    ? empEntries.map(([name,v])=>{
+        const overloaded = v.total>=7 || overloadedAI.has(name);
+        const dot = overloaded ? 'dot-danger' : v['ожидание']>0 ? 'dot-warn' : 'dot-ok';
+        return `<div class="emp-row">
+          <div class="emp-dot ${dot}"></div>
+          <div class="emp-name">${esc(name.split(' ').slice(0,2).join(' '))}</div>
+          <div class="emp-tasks">${v.total} задач</div>
+        </div>`;
+      }).join('')
+    : '<div class="no-data">Нет данных</div>';
+
+  // Риски (топ-10)
+  document.getElementById('risk-list').innerHTML = rs.length
+    ? rs.slice(0,10).map(r=>{
+        const icon = r.type==='overdue'?'🔴':r.type==='urgent'?'🟡':'⏸️';
+        const label = r.type==='overdue'?`просрочено ${r.days} дн.`
+                    : r.type==='urgent'?`через ${r.days} дн.`:'заблокировано';
+        return `<div class="risk-row">
+          <div class="risk-icon">${icon}</div>
+          <div class="risk-info">
+            <div>${esc((r.task||'—').substring(0,60))}${(r.task||'').length>60?'…':''}</div>
+            <div class="proj">${esc(r.employee)} · ${esc(r.project)} · ${label}</div>
+          </div>
+        </div>`;
+      }).join('')
+    : '<div class="no-data" style="color:var(--green)">Критических рисков нет ✓</div>';
+
+  // Повестка
+  const agenda = report?.analysis?.meeting_agenda||[];
+  const bottlenecks = report?.analysis?.bottlenecks||[];
+  const items = agenda.length ? agenda : bottlenecks;
+  document.getElementById('agenda-list').innerHTML = items.length
+    ? items.slice(0,5).map((item,i)=>`
+        <div class="agenda-row">
+          <div class="agenda-n">${i+1}</div>
+          <div>${esc(item)}</div>
+        </div>`).join('')
+    : '<div class="no-data">AI-отчёт будет в 09:00 МСК</div>';
+
+  // AI summary
+  const summary = report?.analysis?.summary || 'Ожидание ежедневного AI-анализа (формируется в 09:00 МСК)';
+  document.getElementById('ai-summary').textContent = summary;
+}
+
+loadData();
+setInterval(loadData, 5*60*1000); // каждые 5 мин
+</script>
+</body>
+</html>

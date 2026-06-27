@@ -128,9 +128,11 @@ main{max-width:1440px;margin:0 auto;padding:24px 28px}
 
 <div class="tab-nav">
   <button class="tab-btn active" onclick="showTab('overview')">Обзор</button>
+  <button class="tab-btn" onclick="showTab('trends')">Тренды</button>
   <button class="tab-btn" onclick="showTab('registry')">Реестр задач</button>
   <button class="tab-btn" onclick="showTab('team')">Команда</button>
   <button class="tab-btn" onclick="showTab('objects')">Объекты</button>
+  <button class="tab-btn" onclick="window.open('meeting.html','_blank')" style="margin-left:auto;color:var(--accent)">📊 Экран планёрки ↗</button>
 </div>
 
 <main>
@@ -149,6 +151,29 @@ main{max-width:1440px;margin:0 auto;padding:24px 28px}
       <div class="card"><h3>Изменения за 24 часа</h3><div id="changes-list"></div></div>
     </div>
     <div id="ai-recs-block"></div>
+  </div>
+
+  <!-- ТРЕНДЫ -->
+  <div id="tab-trends" class="tab-content">
+    <div class="grid-2">
+      <div class="card">
+        <h3>Динамика задач по статусам (30 дней)</h3>
+        <svg id="svg-status" width="100%" height="200" style="margin-top:8px"></svg>
+        <div id="legend-status" style="display:flex;gap:16px;margin-top:8px;font-size:12px"></div>
+      </div>
+      <div class="card">
+        <h3>Просроченные задачи по дням</h3>
+        <svg id="svg-overdue" width="100%" height="200" style="margin-top:8px"></svg>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:20px">
+      <h3>Загрузка сотрудников по дням</h3>
+      <svg id="svg-emp" width="100%" height="240" style="margin-top:8px"></svg>
+      <div id="legend-emp" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-size:12px"></div>
+    </div>
+    <div id="trends-empty" class="card" style="display:none">
+      <p class="empty">Тренды появятся после накопления нескольких дней данных.</p>
+    </div>
   </div>
 
   <!-- РЕЕСТР -->
@@ -480,9 +505,115 @@ async function loadData(){
   renderObjects(allProjects);
 }
 
+// ── Тренды ───────────────────────────────────────────────────
+const TREND_COLORS = [
+  '#4f6ef7','#22c55e','#f59e0b','#ef4444','#7c5ff7',
+  '#06b6d4','#f97316','#ec4899','#84cc16','#a78bfa',
+];
+
+function svgLine(points, color, strokeW=2){
+  if(points.length<2) return '';
+  const d = points.map((p,i)=>(i===0?`M${p[0]},${p[1]}`:`L${p[0]},${p[1]}`)).join(' ');
+  return `<path d="${d}" stroke="${color}" stroke-width="${strokeW}" fill="none" stroke-linejoin="round" stroke-linecap="round"/>`;
+}
+
+function svgArea(points, color){
+  if(points.length<2) return '';
+  const last = points[points.length-1];
+  const d = points.map((p,i)=>(i===0?`M${p[0]},${p[1]}`:`L${p[0]},${p[1]}`)).join(' ')
+    + ` L${last[0]},200 L${points[0][0]},200 Z`;
+  return `<path d="${d}" fill="${color}" opacity="0.12"/>`;
+}
+
+function makeSVG(el, series, h=200, showDots=false){
+  const W = el.parentElement.offsetWidth - 40 || 500;
+  el.setAttribute('viewBox', `0 0 ${W} ${h}`);
+  const allVals = series.flatMap(s=>s.values);
+  const maxV = Math.max(...allVals, 1);
+  const n = series[0]?.values.length || 1;
+  const padL=4, padR=8, padT=10, padB=20;
+  const gW = W - padL - padR;
+  const gH = h - padT - padB;
+
+  const toX = i => padL + (i/(n-1||1))*gW;
+  const toY = v => padT + gH - (v/maxV)*gH;
+
+  let html = '';
+  // Grid lines
+  for(let i=0;i<=4;i++){
+    const y = padT + (i/4)*gH;
+    const val = Math.round(maxV*(1-i/4));
+    html += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#2e3350" stroke-width="1"/>`;
+    html += `<text x="${padL-2}" y="${y+4}" font-size="9" fill="#64748b" text-anchor="end">${val}</text>`;
+  }
+
+  // Series
+  series.forEach((s,si)=>{
+    const pts = s.values.map((v,i)=>[toX(i), toY(v)]);
+    html += svgArea(pts, s.color);
+    html += svgLine(pts, s.color);
+    if(showDots) pts.forEach(p=>{
+      html += `<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="${s.color}"/>`;
+    });
+  });
+
+  el.innerHTML = html;
+}
+
+async function loadTrends(){
+  let trends;
+  try{
+    const r = await fetch('data/trends.json?v='+Date.now());
+    if(r.ok) trends = await r.json();
+  }catch(_){}
+
+  if(!trends || !trends.days || trends.days.length < 2){
+    document.getElementById('trends-empty').style.display='block';
+    return;
+  }
+  document.getElementById('trends-empty').style.display='none';
+
+  const days = trends.days;
+  const dates = days.map(d=>d.date.slice(5)); // MM-DD
+
+  // График статусов
+  const statusSeries = [
+    {label:'Завершено', values:days.map(d=>d.done),    color:'#22c55e'},
+    {label:'В работе',  values:days.map(d=>d.wip),     color:'#4f6ef7'},
+    {label:'Ожидание',  values:days.map(d=>d.waiting), color:'#f59e0b'},
+  ];
+  const svgStatus = document.getElementById('svg-status');
+  makeSVG(svgStatus, statusSeries, 200);
+  document.getElementById('legend-status').innerHTML =
+    statusSeries.map(s=>`<span style="color:${s.color}">■ ${s.label}</span>`).join('');
+
+  // График просрочек
+  const overdueSeries = [
+    {label:'Просрочено', values:days.map(d=>d.overdue), color:'#ef4444'},
+    {label:'Срочных',    values:days.map(d=>d.urgent),  color:'#f59e0b'},
+  ];
+  makeSVG(document.getElementById('svg-overdue'), overdueSeries, 200);
+
+  // График загрузки сотрудников
+  const empSeries = trends.emp_series || {};
+  const empNames = Object.keys(empSeries);
+  if(empNames.length){
+    const series = empNames.slice(0,10).map((name,i)=>({
+      label: name.split(' ').slice(0,2).join(' '),
+      values: empSeries[name],
+      color: TREND_COLORS[i % TREND_COLORS.length],
+    }));
+    makeSVG(document.getElementById('svg-emp'), series, 240);
+    document.getElementById('legend-emp').innerHTML =
+      series.map(s=>`<span style="color:${s.color}">■ ${esc(s.label)}</span>`).join('');
+  }
+}
+
 // Автообновление каждые 30 мин
 loadData();
+loadTrends();
 setInterval(loadData, 30*60*1000);
+setInterval(loadTrends, 30*60*1000);
 </script>
 </body>
 </html>
