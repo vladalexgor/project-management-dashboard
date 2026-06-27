@@ -22,8 +22,16 @@ def fetch_sheet_csv():
         f"https://docs.google.com/spreadsheets/d/{SHEET_ID}"
         f"/gviz/tq?tqx=out:csv&sheet={urllib.request.quote(SHEET_NAME)}"
     )
-    with urllib.request.urlopen(url, timeout=30) as response:
-        return response.read().decode("utf-8")
+    # utf-8-sig убирает BOM-маркер, который Google Sheets добавляет в CSV
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=30) as response:
+                return response.read().decode("utf-8-sig")
+        except Exception as e:
+            if attempt == 2:
+                raise
+            import time
+            time.sleep(2 ** attempt)  # 1с, 2с
 
 
 def parse_csv(raw_csv):
@@ -90,7 +98,9 @@ def find_risks(rows):
                 continue
 
         if deadline:
-            days_left = (deadline - now).days
+            # Сравниваем только даты, без времени — иначе задача с дедлайном "сегодня"
+            # в 23:30 выглядит просроченной на 1 день
+            days_left = (deadline.date() - now.date()).days
             if days_left < 0:
                 risks.append({
                     "type": "overdue",
@@ -109,8 +119,18 @@ def find_risks(rows):
                     "task": task,
                     "deadline": deadline_str,
                 })
-
-        if status == "ожидание":
+            # blocked обрабатываем отдельно только если нет deadline-риска,
+            # чтобы одна задача не появлялась дважды в списке
+            elif status == "ожидание":
+                risks.append({
+                    "type": "blocked",
+                    "days": None,
+                    "project": project,
+                    "employee": employee,
+                    "task": task,
+                    "deadline": deadline_str,
+                })
+        elif status == "ожидание":
             risks.append({
                 "type": "blocked",
                 "days": None,

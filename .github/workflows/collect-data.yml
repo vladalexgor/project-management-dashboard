@@ -5,6 +5,10 @@ on:
     - cron: "0,30 * * * *"   # каждые 30 минут, круглосуточно
   workflow_dispatch:           # ручной запуск для теста
 
+concurrency:
+  group: collect-data
+  cancel-in-progress: false   # не отменяем, а ждём — данные важны
+
 permissions:
   contents: write
 
@@ -20,9 +24,6 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
-        run: pip install anthropic
-
       - name: Collect data from Google Sheets
         run: python scripts/collect_data.py
 
@@ -31,5 +32,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/
-          git diff --cached --quiet || git commit -m "data: снапшот $(date -u +'%Y-%m-%d %H:%M UTC')"
-          git push
+          git diff --cached --quiet || (
+            git commit -m "data: снапшот $(date -u +'%Y-%m-%d %H:%M UTC')" &&
+            git pull --rebase origin main &&
+            git push
+          )

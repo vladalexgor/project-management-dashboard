@@ -46,8 +46,14 @@ def detect_changes(snapshots):
     if len(snapshots) < 2:
         return []
 
-    first = {r.get("Задача", "") + r.get("Сотрудник", ""): r for r in snapshots[0].get("rows", [])}
-    last = {r.get("Задача", "") + r.get("Сотрудник", ""): r for r in snapshots[-1].get("rows", [])}
+    def row_key(r):
+        # Разделитель ||| исключает коллизии при конкатенации
+        # Fallback на "Задача/Роль" если столбец называется иначе
+        task = r.get("Задача") or r.get("Задача/Роль", "")
+        return f"{r.get('Проект', '')}|||{task}|||{r.get('Сотрудник', '')}"
+
+    first = {row_key(r): r for r in snapshots[0].get("rows", [])}
+    last = {row_key(r): r for r in snapshots[-1].get("rows", [])}
 
     changes = []
     for key, row in last.items():
@@ -126,12 +132,36 @@ def analyze_with_claude(context):
 Отвечай ТОЛЬКО валидным JSON, без markdown-обёртки."""
 
     message = client.messages.create(
-        model="claude-opus-4-6",
-        max_tokens=2000,
+        model="claude-sonnet-4-6",
+        max_tokens=4096,
+        system=(
+            "Ты — аналитик инженерного проектного бюро. "
+            "Отвечай строго валидным JSON без markdown-обёртки, комментариев и лишнего текста. "
+            "Используй только факты из предоставленных данных, не додумывай."
+        ),
         messages=[{"role": "user", "content": prompt}],
     )
 
-    return json.loads(message.content[0].text)
+    raw = message.content[0].text.strip()
+    # Защита от markdown-блока ```json ... ```
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as e:
+        # Возвращаем деградированный ответ вместо краша
+        print(f"  [WARN] Не удалось разобрать JSON от Claude: {e}")
+        return {
+            "summary": "Анализ недоступен — ошибка парсинга ответа Claude.",
+            "risks": [],
+            "highlights": [],
+            "bottlenecks": [],
+            "week_focus": raw[:500],
+        }
 
 
 def main():
