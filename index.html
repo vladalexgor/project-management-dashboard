@@ -5,202 +5,114 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Управление проектами — Бюро</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--border:#2e3350;
+  --accent:#4f6ef7;--accent2:#7c5ff7;
+  --green:#22c55e;--yellow:#f59e0b;--red:#ef4444;--orange:#f97316;
+  --text:#e2e8f0;--muted:#64748b;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 
-  :root {
-    --bg: #0f1117;
-    --surface: #1a1d27;
-    --surface2: #22263a;
-    --border: #2e3350;
-    --accent: #4f6ef7;
-    --accent2: #7c5ff7;
-    --green: #22c55e;
-    --yellow: #f59e0b;
-    --red: #ef4444;
-    --text: #e2e8f0;
-    --muted: #64748b;
-  }
+/* Header */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.logo{font-size:17px;font-weight:700;letter-spacing:-.5px}
+.logo span{color:var(--accent)}
+.header-right{display:flex;align-items:center;gap:12px;font-size:13px;color:var(--muted)}
+.stale-warning{background:rgba(249,115,22,.15);color:var(--orange);border:1px solid var(--orange);border-radius:6px;padding:4px 10px;font-size:12px;display:none}
+.refresh-btn{background:var(--accent);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:13px;cursor:pointer;transition:opacity .2s}
+.refresh-btn:hover{opacity:.85}
 
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-  }
+/* Tabs nav */
+.tab-nav{display:flex;gap:4px;padding:20px 28px 0;border-bottom:1px solid var(--border);background:var(--surface)}
+.tab-btn{padding:8px 18px;border-radius:8px 8px 0 0;font-size:13px;cursor:pointer;border:1px solid transparent;border-bottom:none;color:var(--muted);background:none;transition:all .15s}
+.tab-btn.active{background:var(--bg);border-color:var(--border);color:var(--text)}
 
-  header {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    padding: 16px 32px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
+main{max-width:1440px;margin:0 auto;padding:24px 28px}
+.tab-content{display:none}.tab-content.active{display:block}
 
-  .logo { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
-  .logo span { color: var(--accent); }
+/* Cards & grids */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+.card h3{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:20px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:20px}
 
-  .header-right { display: flex; align-items: center; gap: 16px; font-size: 13px; color: var(--muted); }
+/* KPI */
+.kpi-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.kpi-value{font-size:30px;font-weight:700;line-height:1}
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:5px}
+.c-blue{color:var(--accent)}.c-green{color:var(--green)}.c-red{color:var(--red)}.c-yellow{color:var(--yellow)}
 
-  #updated-at { font-size: 12px; }
+/* AI summary */
+.ai-card{background:linear-gradient(135deg,#1e2240,#1a1d27);border:1px solid var(--accent);border-radius:12px;padding:22px;margin-bottom:20px}
+.ai-card .ai-label{font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+.ai-card p{font-size:14px;line-height:1.7}
+.ai-meta{margin-top:10px;font-size:11px;color:var(--muted)}
 
-  .refresh-btn {
-    background: var(--accent);
-    color: white;
-    border: none;
-    padding: 6px 14px;
-    border-radius: 6px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: opacity 0.2s;
-  }
-  .refresh-btn:hover { opacity: 0.85; }
+/* Agenda */
+.agenda-list{display:flex;flex-direction:column;gap:6px}
+.agenda-item{display:flex;gap:10px;align-items:flex-start;font-size:13px;padding:8px 10px;background:var(--surface2);border-radius:8px}
+.agenda-num{color:var(--accent);font-weight:700;flex-shrink:0;min-width:18px}
 
-  main { max-width: 1400px; margin: 0 auto; padding: 32px; }
+/* Employee table */
+.emp-table{width:100%;border-collapse:collapse}
+.emp-table th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;padding:6px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.emp-table td{padding:9px 10px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+.emp-table tr:last-child td{border-bottom:none}
+.emp-table tr:hover td{background:rgba(79,110,247,.05)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-overloaded{background:rgba(239,68,68,.15);color:var(--red)}
+.badge-normal{background:rgba(34,197,94,.12);color:var(--green)}
+.badge-vacation{background:rgba(249,115,22,.15);color:var(--orange)}
 
-  /* AI Summary */
-  .ai-card {
-    background: linear-gradient(135deg, #1e2240 0%, #1a1d27 100%);
-    border: 1px solid var(--accent);
-    border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 24px;
-  }
-  .ai-card h2 { font-size: 14px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
-  .ai-card p { font-size: 15px; line-height: 1.7; color: var(--text); }
-  .ai-meta { margin-top: 12px; font-size: 12px; color: var(--muted); }
+/* Progress bars */
+.bar-wrap{display:flex;gap:2px;height:5px;border-radius:3px;overflow:hidden;background:var(--surface2);margin-top:5px}
+.bar-done{background:var(--green)}.bar-wip{background:var(--accent)}.bar-wait{background:var(--yellow)}
 
-  /* KPI Row */
-  .kpi-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    margin-bottom: 24px;
-  }
+/* Risk list */
+.risk-item{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px}
+.risk-item:last-child{border-bottom:none}
+.risk-icon{font-size:15px;flex-shrink:0;margin-top:1px}
+.risk-title{font-weight:500;line-height:1.4}
+.risk-meta{font-size:11px;color:var(--muted);margin-top:2px}
 
-  .kpi-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
-  }
-  .kpi-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-  .kpi-value { font-size: 32px; font-weight: 700; line-height: 1; }
-  .kpi-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+/* Project bars */
+.proj-row{display:flex;align-items:center;gap:8px;padding:7px 0;font-size:13px}
+.proj-name{width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.proj-bar-wrap{flex:1;background:var(--surface2);height:7px;border-radius:4px;overflow:hidden}
+.proj-bar-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .5s}
+.proj-count{font-size:12px;color:var(--muted);width:28px;text-align:right}
 
-  .kpi-green { color: var(--green); }
-  .kpi-yellow { color: var(--yellow); }
-  .kpi-red { color: var(--red); }
-  .kpi-blue { color: var(--accent); }
+/* Change items */
+.change-item{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
+.change-item:last-child{border-bottom:none}
+.change-dot{width:7px;height:7px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.dot-done{background:var(--green)}.dot-new{background:var(--accent)}
+.dot-change{background:var(--yellow)}.dot-removed{background:var(--red)}
+.dot-deadline{background:var(--orange)}
 
-  /* Grid 2 col */
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
-  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+/* Projects grid */
+.proj-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:13px}
+.proj-card-name{font-weight:600;margin-bottom:4px;line-height:1.3}
+.proj-card-comment{color:var(--muted);font-size:12px;line-height:1.4}
 
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
-  }
-  .card h3 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+/* Team cards */
+.team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.team-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px}
+.team-name{font-weight:600;margin-bottom:6px;font-size:14px}
+.team-meta{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
 
-  /* Employee table */
-  .emp-row {
-    display: grid;
-    grid-template-columns: 1fr 80px 80px 80px 100px;
-    gap: 8px;
-    align-items: center;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 13px;
-  }
-  .emp-row:last-child { border-bottom: none; }
-  .emp-name { font-weight: 500; }
-  .emp-num { text-align: center; font-variant-numeric: tabular-nums; }
+/* Empty / loading */
+.empty{color:var(--muted);font-size:13px;padding:20px 0}
+.loading{text-align:center;color:var(--muted);padding:60px;font-size:14px}
+.error-msg{background:rgba(239,68,68,.1);border:1px solid var(--red);border-radius:8px;padding:14px;color:var(--red);font-size:13px;margin-bottom:16px}
 
-  .bar-wrap { display: flex; gap: 2px; height: 6px; border-radius: 3px; overflow: hidden; background: var(--surface2); }
-  .bar-done { background: var(--green); }
-  .bar-wip { background: var(--accent); }
-  .bar-wait { background: var(--yellow); }
-
-  .status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-  }
-  .badge-overloaded { background: rgba(239,68,68,0.15); color: var(--red); }
-  .badge-normal { background: rgba(34,197,94,0.12); color: var(--green); }
-
-  /* Risk list */
-  .risk-item {
-    display: flex;
-    gap: 12px;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 13px;
-  }
-  .risk-item:last-child { border-bottom: none; }
-  .risk-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
-  .risk-title { font-weight: 500; line-height: 1.4; }
-  .risk-meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
-
-  /* Project bars */
-  .proj-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 0;
-    font-size: 13px;
-  }
-  .proj-name { width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .proj-bar-wrap { flex: 1; background: var(--surface2); height: 8px; border-radius: 4px; overflow: hidden; }
-  .proj-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.5s; }
-  .proj-count { font-size: 12px; color: var(--muted); width: 30px; text-align: right; }
-
-  /* Changes */
-  .change-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 13px;
-  }
-  .change-item:last-child { border-bottom: none; }
-  .change-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
-  .dot-done { background: var(--green); }
-  .dot-new { background: var(--accent); }
-  .dot-change { background: var(--yellow); }
-
-  /* Tabs */
-  .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
-  .tab {
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-size: 13px;
-    cursor: pointer;
-    border: 1px solid transparent;
-    color: var(--muted);
-    background: none;
-  }
-  .tab.active { background: var(--surface2); border-color: var(--border); color: var(--text); }
-
-  .loading { text-align: center; color: var(--muted); padding: 60px; font-size: 14px; }
-  .error-msg { background: rgba(239,68,68,0.1); border: 1px solid var(--red); border-radius: 8px; padding: 16px; color: var(--red); font-size: 13px; margin-bottom: 20px; }
-
-  @media (max-width: 900px) {
-    .kpi-row { grid-template-columns: repeat(2, 1fr); }
-    .grid-2, .grid-3 { grid-template-columns: 1fr; }
-    main { padding: 16px; }
-  }
+@media(max-width:900px){
+  .grid-4{grid-template-columns:repeat(2,1fr)}
+  .grid-2,.grid-3{grid-template-columns:1fr}
+  main{padding:14px}
+}
 </style>
 </head>
 <body>
@@ -208,234 +120,369 @@
 <header>
   <div class="logo">Бюро <span>/ Проекты</span></div>
   <div class="header-right">
+    <span class="stale-warning" id="stale-warn">⚠ Данные устарели</span>
     <span id="updated-at">Загрузка...</span>
-    <button class="refresh-btn" onclick="loadData()">↻ Обновить</button>
+    <button class="refresh-btn" onclick="loadData()">↻</button>
   </div>
 </header>
 
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="showTab('overview')">Обзор</button>
+  <button class="tab-btn" onclick="showTab('registry')">Реестр задач</button>
+  <button class="tab-btn" onclick="showTab('team')">Команда</button>
+  <button class="tab-btn" onclick="showTab('objects')">Объекты</button>
+</div>
+
 <main>
   <div id="error-container"></div>
-  <div id="app"><div class="loading">Загрузка данных...</div></div>
+
+  <!-- ОБЗОР -->
+  <div id="tab-overview" class="tab-content active">
+    <div id="ai-block"></div>
+    <div id="kpi-row" class="grid-4"></div>
+    <div class="grid-2">
+      <div class="card" id="employees-card"><h3>Загрузка команды</h3><div id="employees-table"></div></div>
+      <div class="card"><h3>Риски и дедлайны</h3><div id="risks-list"></div></div>
+    </div>
+    <div class="grid-2">
+      <div class="card"><h3>Задачи по проектам</h3><div id="projects-bars"></div></div>
+      <div class="card"><h3>Изменения за 24 часа</h3><div id="changes-list"></div></div>
+    </div>
+    <div id="ai-recs-block"></div>
+  </div>
+
+  <!-- РЕЕСТР -->
+  <div id="tab-registry" class="tab-content">
+    <div class="card">
+      <h3>Все задачи реестра</h3>
+      <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap" id="registry-filters"></div>
+      <div style="overflow-x:auto">
+        <table class="emp-table" id="registry-table">
+          <thead><tr>
+            <th>Проект</th><th>Сотрудник</th><th>Задача</th><th>Дедлайн</th><th>Статус</th>
+          </tr></thead>
+          <tbody id="registry-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- КОМАНДА -->
+  <div id="tab-team" class="tab-content">
+    <div class="card"><h3>Список сотрудников</h3><div class="team-grid" id="team-grid"></div></div>
+  </div>
+
+  <!-- ОБЪЕКТЫ -->
+  <div id="tab-objects" class="tab-content">
+    <div class="card">
+      <h3>Все объекты</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-top:4px" id="objects-grid"></div>
+    </div>
+  </div>
 </main>
 
 <script>
-const DATA_URL = 'data/latest.json';
+const DATA_URL   = 'data/latest.json';
 const REPORT_URL = 'reports/latest_report.json';
 
-function fmt(dt) {
-  if (!dt) return '—';
-  const d = new Date(dt);
-  return d.toLocaleString('ru-RU', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+let allRows = [], allTeam = [], allProjects = [];
+let activeFilters = {};
+
+// ── Утилиты ──────────────────────────────────────────────────
+function fmt(dt){
+  if(!dt) return '—';
+  return new Date(dt).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function riskIcon(t){ return t==='overdue'?'🔴':t==='urgent'?'🟡':'⏸️' }
+function riskLabel(r){
+  if(r.type==='overdue') return `Просрочено ${r.days} дн.`;
+  if(r.type==='urgent')  return `Через ${r.days} дн. (${r.deadline})`;
+  return 'Заблокировано';
 }
 
-function riskIcon(type) {
-  if (type === 'overdue') return '🔴';
-  if (type === 'urgent') return '🟡';
-  if (type === 'blocked') return '⏸️';
-  return '⚪';
+function showTab(name){
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.target.classList.add('active');
 }
 
-function riskLabel(r) {
-  if (r.type === 'overdue') return `Просрочено на ${r.days} дн.`;
-  if (r.type === 'urgent') return `Срок через ${r.days} дн. (${r.deadline})`;
-  if (r.type === 'blocked') return `Заблокировано`;
-  return '';
+function statusColor(s){
+  const sl=(s||'').toLowerCase();
+  if(sl==='завершено') return 'color:var(--green)';
+  if(sl==='в работе')  return 'color:var(--accent)';
+  if(sl==='ожидание')  return 'color:var(--yellow)';
+  if(sl==='на проверке') return 'color:var(--orange)';
+  return 'color:var(--muted)';
 }
 
-function renderEmployeeTable(byEmployee) {
-  const entries = Object.entries(byEmployee).sort((a, b) => b[1].total - a[1].total);
-  if (!entries.length) return '<p style="color:var(--muted);font-size:13px">Нет данных</p>';
+// ── Рендер: AI блок ──────────────────────────────────────────
+function renderAI(report){
+  if(!report?.analysis) return document.getElementById('ai-block').innerHTML='';
+  const a=report.analysis;
+  const agenda = (a.meeting_agenda||[]).map((item,i)=>
+    `<div class="agenda-item"><span class="agenda-num">${i+1}</span><span>${esc(item)}</span></div>`
+  ).join('');
 
-  const maxTasks = Math.max(...entries.map(([,v]) => v.total), 1);
+  document.getElementById('ai-block').innerHTML=`
+    <div class="ai-card">
+      <div class="ai-label">🤖 AI-анализ · ${report.date||''}</div>
+      <p>${esc(a.summary||'')}</p>
+      ${a.week_focus?`<p style="margin-top:10px;color:var(--muted);font-size:13px">${esc(a.week_focus)}</p>`:''}
+      ${agenda?`<div class="agenda-list" style="margin-top:14px">${agenda}</div>`:''}
+      <div class="ai-meta">Сформировано в 09:00 МСК · Снапшотов: ${report.snapshots_count||'—'} · Изменений: ${(report.changes||[]).length}</div>
+    </div>`;
 
-  return `
-    <div class="emp-row" style="font-size:11px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);padding-bottom:6px">
-      <div>Сотрудник</div><div class="emp-num">Всего</div>
-      <div class="emp-num" style="color:var(--green)">✓</div>
-      <div class="emp-num" style="color:var(--accent)">▶</div>
-      <div class="emp-num" style="color:var(--yellow)">⏸</div>
-    </div>
-    ${entries.map(([name, v]) => {
-      const total = v.total || 1;
-      const doneW = Math.round((v['завершено'] || 0) / total * 100);
-      const wipW = Math.round((v['в работе'] || 0) / total * 100);
-      const waitW = Math.round((v['ожидание'] || 0) / total * 100);
-      const overloaded = v.total >= 8;
-      return `
-        <div class="emp-row">
-          <div>
-            <div class="emp-name">${name}</div>
-            <div class="bar-wrap" style="margin-top:5px">
-              <div class="bar-done" style="width:${doneW}%"></div>
-              <div class="bar-wip" style="width:${wipW}%"></div>
-              <div class="bar-wait" style="width:${waitW}%"></div>
-            </div>
-          </div>
-          <div class="emp-num kpi-blue">${v.total}</div>
-          <div class="emp-num kpi-green">${v['завершено'] || 0}</div>
-          <div class="emp-num" style="color:var(--accent)">${v['в работе'] || 0}</div>
-          <div class="emp-num" style="color:var(--yellow)">${v['ожидание'] || 0}</div>
-        </div>`;
-    }).join('')}`;
+  // AI рекомендации
+  const recs = (a.risks||[]).map(r=>`
+    <div class="risk-item">
+      <div class="risk-icon">${r.severity==='high'?'🔴':'🟡'}</div>
+      <div><div class="risk-title">${esc(r.description)}</div>
+      <div class="risk-meta">→ ${esc(r.recommendation)}</div></div>
+    </div>`).join('');
+  document.getElementById('ai-recs-block').innerHTML = recs
+    ? `<div class="card" style="margin-bottom:20px"><h3>Рекомендации AI</h3>${recs}</div>` : '';
 }
 
-function renderProjects(byProject) {
-  const entries = Object.entries(byProject).sort((a, b) => b[1] - a[1]);
-  if (!entries.length) return '<p style="color:var(--muted);font-size:13px">Нет данных</p>';
-  const max = Math.max(...entries.map(([,v]) => v), 1);
-  return entries.map(([name, count]) => `
+// ── Рендер: KPI ──────────────────────────────────────────────
+function renderKPI(data, report){
+  const s=data.stats?.by_status||{};
+  const done  = s['завершено']||0;
+  const wip   = s['в работе']||0;
+  const wait  = s['ожидание']||0;
+  const total = data.total_tasks||0;
+  const risks = data.risks||[];
+  const overdue=risks.filter(r=>r.type==='overdue').length;
+  document.getElementById('kpi-row').innerHTML=`
+    <div class="card"><div class="kpi-label">Всего задач</div>
+      <div class="kpi-value c-blue">${total}</div>
+      <div class="kpi-sub">${data.total_projects||0} объектов · ${data.total_employees||0} сотрудников</div></div>
+    <div class="card"><div class="kpi-label">Завершено</div>
+      <div class="kpi-value c-green">${done}</div>
+      <div class="kpi-sub">${total?Math.round(done/total*100):0}% от всех задач</div></div>
+    <div class="card"><div class="kpi-label">В работе</div>
+      <div class="kpi-value c-blue">${wip}</div>
+      <div class="kpi-sub">${wait} задач заблокировано</div></div>
+    <div class="card"><div class="kpi-label">Просрочено</div>
+      <div class="kpi-value ${overdue>0?'c-red':'c-green'}">${overdue}</div>
+      <div class="kpi-sub">${risks.filter(r=>r.type==='urgent').length} срочных (≤7 дней)</div></div>`;
+}
+
+// ── Рендер: Загрузка сотрудников ─────────────────────────────
+function renderEmployees(data, report){
+  const byEmp = data.stats?.by_employee||{};
+  // Обогащаем данными из вкладки Команда
+  const teamMap = {};
+  (data.team||[]).forEach(t=>{ if(t['Сотрудник']) teamMap[t['Сотрудник']]=t; });
+
+  const entries = Object.entries(byEmp).sort((a,b)=>b[1].total-a[1].total);
+  if(!entries.length){ document.getElementById('employees-table').innerHTML='<p class="empty">Нет данных</p>'; return; }
+
+  // Перегруженные из AI
+  const overloadedAI = new Set((report?.analysis?.overloaded_employees||[]).map(s=>s.split('—')[0].trim()));
+
+  const rows = entries.map(([name,v])=>{
+    const total = v.total||1;
+    const dW=Math.round((v['завершено']||0)/total*100);
+    const wW=Math.round((v['в работе']||0)/total*100);
+    const wt=Math.round((v['ожидание']||0)/total*100);
+    const overloaded = v.total>=7 || overloadedAI.has(name);
+    const info = teamMap[name];
+    const vacation = info?.['Ближайший отпуск']||'';
+    const badge = vacation
+      ? `<span class="badge badge-vacation">✈ ${esc(vacation)}</span>`
+      : overloaded
+        ? `<span class="badge badge-overloaded">⚠ Перегружен</span>`
+        : `<span class="badge badge-normal">✓ Норма</span>`;
+    return `<tr>
+      <td><div style="font-weight:500">${esc(name)}</div>
+          <div class="bar-wrap"><div class="bar-done" style="width:${dW}%"></div><div class="bar-wip" style="width:${wW}%"></div><div class="bar-wait" style="width:${wt}%"></div></div>
+          <div style="margin-top:3px">${badge}</div></td>
+      <td style="text-align:center;color:var(--accent)">${v.total}</td>
+      <td style="text-align:center;color:var(--green)">${v['завершено']||0}</td>
+      <td style="text-align:center;color:var(--accent)">${v['в работе']||0}</td>
+      <td style="text-align:center;color:var(--yellow)">${v['ожидание']||0}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('employees-table').innerHTML=`
+    <table class="emp-table">
+      <thead><tr><th>Сотрудник</th><th style="text-align:center">Всего</th><th style="text-align:center;color:var(--green)">✓</th><th style="text-align:center;color:var(--accent)">▶</th><th style="text-align:center;color:var(--yellow)">⏸</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── Рендер: Риски ────────────────────────────────────────────
+function renderRisks(risks){
+  const el=document.getElementById('risks-list');
+  if(!risks?.length){ el.innerHTML='<p class="empty">Рисков не выявлено ✓</p>'; return; }
+  el.innerHTML=risks.slice(0,15).map(r=>`
+    <div class="risk-item">
+      <div class="risk-icon">${riskIcon(r.type)}</div>
+      <div><div class="risk-title">${esc(r.task||'—')}</div>
+      <div class="risk-meta">${esc(r.project)} · ${esc(r.employee)} · ${riskLabel(r)}</div></div>
+    </div>`).join('');
+}
+
+// ── Рендер: Проекты (бары) ───────────────────────────────────
+function renderProjectBars(byProject){
+  const el=document.getElementById('projects-bars');
+  const entries=Object.entries(byProject||{}).sort((a,b)=>b[1]-a[1]);
+  if(!entries.length){ el.innerHTML='<p class="empty">Нет данных</p>'; return; }
+  const max=Math.max(...entries.map(([,v])=>v),1);
+  el.innerHTML=entries.map(([name,count])=>`
     <div class="proj-row">
-      <div class="proj-name" title="${name}">${name}</div>
+      <div class="proj-name" title="${esc(name)}">${esc(name)}</div>
       <div class="proj-bar-wrap"><div class="proj-bar-fill" style="width:${Math.round(count/max*100)}%"></div></div>
       <div class="proj-count">${count}</div>
     </div>`).join('');
 }
 
-function renderRisks(risks) {
-  if (!risks || !risks.length) return '<p style="color:var(--muted);font-size:13px">Рисков не выявлено ✓</p>';
-  return risks.slice(0, 15).map(r => `
-    <div class="risk-item">
-      <div class="risk-icon">${riskIcon(r.type)}</div>
-      <div>
-        <div class="risk-title">${r.task || '—'}</div>
-        <div class="risk-meta">${r.project} · ${r.employee} · ${riskLabel(r)}</div>
-      </div>
-    </div>`).join('');
-}
-
-function renderChanges(changes) {
-  if (!changes || !changes.length) return '<p style="color:var(--muted);font-size:13px">Изменений за день не зафиксировано</p>';
-  return changes.slice(0, 20).map(c => {
-    let dot = 'dot-change', text = '';
-    if (c.type === 'new_task') { dot = 'dot-new'; text = `Новая задача: <b>${c.task}</b>`; }
-    else if (c.type === 'status_change') {
-      if (c.to === 'завершено') dot = 'dot-done';
-      text = `<b>${c.task}</b> → ${c.from} → ${c.to}`;
+// ── Рендер: Изменения ────────────────────────────────────────
+function renderChanges(changes){
+  const el=document.getElementById('changes-list');
+  if(!changes?.length){ el.innerHTML='<p class="empty">Изменений не зафиксировано</p>'; return; }
+  el.innerHTML=changes.slice(0,20).map(c=>{
+    let dot='dot-change',text='';
+    if(c.type==='new_task'){ dot='dot-new'; text=`Новая задача: <b>${esc(c.task)}</b>`; }
+    else if(c.type==='removed_task'){ dot='dot-removed'; text=`Удалена задача: <b>${esc(c.task)}</b>`; }
+    else if(c.type==='deadline_change'){ dot='dot-deadline'; text=`Дедлайн перенесён: <b>${esc(c.task)}</b> ${esc(c.from)} → ${esc(c.to)}`; }
+    else if(c.type==='status_change'){
+      if(c.to==='завершено') dot='dot-done';
+      text=`<b>${esc(c.task)}</b>: ${esc(c.from)} → <b>${esc(c.to)}</b>`;
     }
-    return `
-      <div class="change-item">
-        <div class="change-dot ${dot}"></div>
-        <div>
-          <div>${text}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.project} · ${c.employee}</div>
-        </div>
-      </div>`;
+    return `<div class="change-item">
+      <div class="change-dot ${dot}"></div>
+      <div><div>${text}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(c.project)} · ${esc(c.employee)}</div></div>
+    </div>`;
   }).join('');
 }
 
-function renderAISummary(report) {
-  if (!report || !report.analysis) return '';
-  const a = report.analysis;
-  return `
-    <div class="ai-card">
-      <h2>🤖 AI-анализ на ${report.date || ''}</h2>
-      <p>${a.summary || ''}</p>
-      ${a.week_focus ? `<p style="margin-top:12px;color:var(--muted);font-size:14px">${a.week_focus}</p>` : ''}
-      <div class="ai-meta">Сформировано в 09:00 МСК · Проанализировано снапшотов: ${report.snapshots_count || '—'}</div>
-    </div>`;
+// ── Рендер: Реестр (таблица) ─────────────────────────────────
+function renderRegistry(rows){
+  // Фильтры по статусу
+  const statuses=[...new Set(rows.map(r=>r['Статус']||'').filter(Boolean))];
+  document.getElementById('registry-filters').innerHTML=
+    ['Все',...statuses].map(s=>`
+      <button onclick="filterRegistry('${esc(s)}')" id="rf-${esc(s)}"
+        style="padding:4px 12px;border-radius:6px;border:1px solid var(--border);background:${s==='Все'?'var(--accent)':'var(--surface2)'};color:${s==='Все'?'#fff':'var(--text)'};cursor:pointer;font-size:12px">
+        ${esc(s)}
+      </button>`).join('');
+
+  renderRegistryTable(rows);
 }
 
-async function loadData() {
-  const errEl = document.getElementById('error-container');
-  errEl.innerHTML = '';
+let currentRegistryFilter='Все';
+function filterRegistry(status){
+  currentRegistryFilter=status;
+  document.querySelectorAll('[id^=rf-]').forEach(btn=>{
+    btn.style.background=btn.id===`rf-${status}`?'var(--accent)':'var(--surface2)';
+    btn.style.color=btn.id===`rf-${status}`?'#fff':'var(--text)';
+  });
+  const filtered=status==='Все'?allRows:allRows.filter(r=>(r['Статус']||'')==status);
+  renderRegistryTable(filtered);
+}
 
+function renderRegistryTable(rows){
+  const tbody=document.getElementById('registry-body');
+  if(!rows.length){ tbody.innerHTML='<tr><td colspan="5" class="empty" style="padding:20px">Нет задач</td></tr>'; return; }
+  tbody.innerHTML=rows.map(r=>{
+    const task=r['Задача']||r['Задача/Роль']||'—';
+    return `<tr>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(r['Проект']||'')}">${esc(r['Проект']||'—')}</td>
+      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r['Сотрудник']||'—')}</td>
+      <td style="max-width:280px">${esc(task)}</td>
+      <td style="white-space:nowrap">${esc(r['Дедлайн']||'—')}</td>
+      <td><span style="${statusColor(r['Статус'])};font-weight:500">${esc(r['Статус']||'—')}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Рендер: Команда ──────────────────────────────────────────
+function renderTeam(team, byEmployee){
+  const el=document.getElementById('team-grid');
+  if(!team?.length){ el.innerHTML='<p class="empty">Нет данных о команде</p>'; return; }
+  el.innerHTML=team.map(t=>{
+    const name=t['Сотрудник']||'';
+    const status=t['Статус']||'';
+    const vacation=t['Ближайший отпуск']||'';
+    const email=t['Почта']||'';
+    const tasks=byEmployee?.[name]?.total||0;
+    const overloaded=tasks>=7;
+    return `<div class="team-card">
+      <div class="team-name">${esc(name)}</div>
+      <div class="team-meta">
+        ${status?`<span style="${statusColor(status)}">${esc(status)}</span>`:''}
+        ${tasks?`<span style="color:var(--muted)">Задач: <b style="color:var(--accent)">${tasks}</b>${overloaded?' ⚠':''}  </span>`:''}
+        ${vacation?`<span>✈ ${esc(vacation)}</span>`:''}
+        ${email?`<span style="color:var(--muted)">${esc(email)}</span>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Рендер: Объекты ──────────────────────────────────────────
+function renderObjects(projects){
+  const el=document.getElementById('objects-grid');
+  if(!projects?.length){ el.innerHTML='<p class="empty">Нет данных об объектах</p>'; return; }
+  el.innerHTML=projects.map(p=>{
+    const name=p['Название объекта']||p['Название']||Object.values(p)[1]||'—';
+    const comment=p['Комментарии']||p['Комментарий']||'';
+    return `<div class="proj-card">
+      <div class="proj-card-name">${esc(name)}</div>
+      ${comment?`<div class="proj-card-comment">${esc(comment)}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ── Главная загрузка ─────────────────────────────────────────
+async function loadData(){
+  document.getElementById('error-container').innerHTML='';
   let data, report;
-  try {
-    const r1 = await fetch(DATA_URL + '?v=' + Date.now());
-    if (!r1.ok) throw new Error(`Нет данных (${r1.status}). Дождитесь первого запуска GitHub Actions.`);
-    data = await r1.json();
-  } catch (e) {
-    errEl.innerHTML = `<div class="error-msg">⚠️ ${e.message}</div>`;
-    document.getElementById('app').innerHTML = `<div class="loading">Данные ещё не собраны. GitHub Actions запустится через несколько минут после добавления ANTHROPIC_API_KEY в секреты репозитория.</div>`;
+
+  try{
+    const r=await fetch(DATA_URL+'?v='+Date.now());
+    if(!r.ok) throw new Error(`HTTP ${r.status} — данные ещё не собраны. Дождитесь первого запуска GitHub Actions.`);
+    data=await r.json();
+    if(!data.timestamp) throw new Error('Пустой файл данных');
+  } catch(e){
+    document.getElementById('error-container').innerHTML=`<div class="error-msg">⚠ ${e.message}</div>`;
+    document.querySelectorAll('.tab-content').forEach(el=>el.innerHTML='<div class="loading">Ожидание первых данных...</div>');
     return;
   }
 
-  try {
-    const r2 = await fetch(REPORT_URL + '?v=' + Date.now());
-    if (r2.ok) report = await r2.json();
-  } catch (_) {}
+  try{ const r=await fetch(REPORT_URL+'?v='+Date.now()); if(r.ok) report=await r.json(); } catch(_){}
 
-  document.getElementById('updated-at').textContent = 'Обновлено: ' + fmt(data.timestamp);
+  // Проверяем свежесть данных
+  if(data.timestamp){
+    const age=(Date.now()-new Date(data.timestamp))/1000/60; // минуты
+    document.getElementById('updated-at').textContent='Обновлено: '+fmt(data.timestamp);
+    document.getElementById('stale-warn').style.display=age>90?'inline-flex':'none';
+    if(age>90) document.getElementById('stale-warn').textContent=`⚠ Данные устарели (${Math.round(age)} мин назад)`;
+  }
 
-  const stats = data.stats || {};
-  const byStatus = stats.by_status || {};
-  const byProject = stats.by_project || {};
-  const byEmployee = stats.by_employee || {};
-  const risks = data.risks || [];
+  // Сохраняем глобально для фильтров
+  allRows     = data.rows     || [];
+  allTeam     = data.team     || [];
+  allProjects = data.projects || [];
 
-  const done = byStatus['завершено'] || 0;
-  const wip = byStatus['в работе'] || 0;
-  const wait = byStatus['ожидание'] || 0;
-  const total = data.total_tasks || 0;
-  const overdue = risks.filter(r => r.type === 'overdue').length;
-  const changes = report?.changes || [];
-
-  document.getElementById('app').innerHTML = `
-    ${renderAISummary(report)}
-
-    <div class="kpi-row">
-      <div class="kpi-card">
-        <div class="kpi-label">Всего задач</div>
-        <div class="kpi-value kpi-blue">${total}</div>
-        <div class="kpi-sub">${Object.keys(byProject).length} проектов</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Завершено</div>
-        <div class="kpi-value kpi-green">${done}</div>
-        <div class="kpi-sub">${total ? Math.round(done/total*100) : 0}% от всех задач</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">В работе</div>
-        <div class="kpi-value kpi-blue">${wip}</div>
-        <div class="kpi-sub">${wait} задач заблокировано</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Просрочено</div>
-        <div class="kpi-value ${overdue > 0 ? 'kpi-red' : 'kpi-green'}">${overdue}</div>
-        <div class="kpi-sub">${risks.filter(r=>r.type==='urgent').length} срочных задач</div>
-      </div>
-    </div>
-
-    <div class="grid-2">
-      <div class="card">
-        <h3>Загрузка сотрудников</h3>
-        ${renderEmployeeTable(byEmployee)}
-      </div>
-      <div class="card">
-        <h3>Риски и дедлайны</h3>
-        ${renderRisks(risks)}
-      </div>
-    </div>
-
-    <div class="grid-2">
-      <div class="card">
-        <h3>Задачи по проектам</h3>
-        ${renderProjects(byProject)}
-      </div>
-      <div class="card">
-        <h3>Изменения за 24 часа</h3>
-        ${renderChanges(changes)}
-      </div>
-    </div>
-
-    ${report?.analysis?.risks?.length ? `
-    <div class="card" style="margin-bottom:24px">
-      <h3>Рекомендации AI</h3>
-      ${report.analysis.risks.map(r => `
-        <div class="risk-item">
-          <div class="risk-icon">${r.severity === 'high' ? '🔴' : '🟡'}</div>
-          <div>
-            <div class="risk-title">${r.description}</div>
-            <div class="risk-meta">→ ${r.recommendation}</div>
-          </div>
-        </div>`).join('')}
-    </div>` : ''}
-  `;
+  // Рендерим всё
+  renderAI(report);
+  renderKPI(data, report);
+  renderEmployees(data, report);
+  renderRisks(data.risks||[]);
+  renderProjectBars(data.stats?.by_project||{});
+  renderChanges(report?.changes||[]);
+  renderRegistry(allRows);
+  renderTeam(allTeam, data.stats?.by_employee||{});
+  renderObjects(allProjects);
 }
 
-// Автообновление каждые 30 минут
+// Автообновление каждые 30 мин
 loadData();
-setInterval(loadData, 30 * 60 * 1000);
+setInterval(loadData, 30*60*1000);
 </script>
 </body>
 </html>

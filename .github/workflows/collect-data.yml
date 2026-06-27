@@ -2,12 +2,12 @@ name: Сбор данных (каждые 30 мин)
 
 on:
   schedule:
-    - cron: "0,30 * * * *"   # каждые 30 минут, круглосуточно
-  workflow_dispatch:           # ручной запуск для теста
+    - cron: "0,30 * * * *"
+  workflow_dispatch:
 
 concurrency:
   group: collect-data
-  cancel-in-progress: false   # не отменяем, а ждём — данные важны
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -16,15 +16,15 @@ jobs:
   collect:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Collect data from Google Sheets
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
         run: python scripts/collect_data.py
 
       - name: Commit snapshot
