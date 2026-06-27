@@ -20,9 +20,14 @@ MSK = timezone(timedelta(hours=3))
 # Колонки, которые не являются проектами
 NON_PROJECT_COLS = {"Сотрудник", "Статус"}
 
+# Колонки-исключения (служебные, не реальные проекты)
+SKIP_COL_PREFIXES = ("!", )
+
 # Эмодзи → статус задачи
+# 🔴 в этой таблице = "в работе / требует внимания", НЕ "просрочено"
+# Просрочка определяется только по сравнению даты дедлайна с сегодня
 EMOJI_STATUS = {
-    "🔴": "просрочено",
+    "🔴": "в работе",
     "🟡": "в работе",
     "🟢": "завершено",
     "⚪️": "не начато",
@@ -99,9 +104,12 @@ def parse_cell_tasks(cell_value, project, employee):
     """
     Парсим ячейку матрицы в список задач.
     Формат ячейки: '1. 🔴 Задача (25.03.2026)2. 🟡 Другая задача (01.07.2026)'
+    Служебные колонки (начинаются с '!') пропускаем.
     """
     tasks = []
     if not cell_value.strip():
+        return tasks
+    if any(project.startswith(p) for p in SKIP_COL_PREFIXES):
         return tasks
 
     # Разбиваем по паттерну "N. " (начало новой задачи)
@@ -115,11 +123,11 @@ def parse_cell_tasks(cell_value, project, employee):
         task_text  = clean_task_text(part)
         if task_text:
             tasks.append({
-                "Проект":   project,
+                "Проект":    project,
                 "Сотрудник": employee,
-                "Задача":   task_text,
-                "Дедлайн":  deadline,
-                "Статус":   status,
+                "Задача":    task_text,
+                "Дедлайн":   deadline,
+                "Статус":    status,
             })
     return tasks
 
@@ -149,21 +157,27 @@ def extract_team(matrix_rows):
 
 
 def extract_projects(matrix_rows):
-    """Извлекаем список проектов из заголовков колонок."""
+    """Извлекаем список реальных проектов из заголовков колонок.
+    Служебные колонки (начинаются с '!' или 'постоянная') пропускаем.
+    """
     if not matrix_rows:
         return []
     projects = []
     for col in matrix_rows[0].keys():
-        if col not in NON_PROJECT_COLS:
-            # Пытаемся извлечь дедлайн из названия колонки
-            m = re.search(r'\((\d{2}\.\d{2}\.\d{4})\)', col)
-            deadline = m.group(1) if m else ""
-            name = re.sub(r'\s*\(.*?\)\s*$', '', col).strip()
-            projects.append({
-                "Название объекта": name,
-                "Дедлайн проекта": deadline,
-                "Полное название": col,
-            })
+        if col in NON_PROJECT_COLS:
+            continue
+        if any(col.startswith(p) for p in SKIP_COL_PREFIXES):
+            continue
+        if "постоянная" in col.lower():
+            continue
+        m = re.search(r'\((\d{2}\.\d{2}\.\d{4})\)', col)
+        deadline = m.group(1) if m else ""
+        name = re.sub(r'\s*\(.*?\)\s*$', '', col).strip()
+        projects.append({
+            "Название объекта": name,
+            "Дедлайн проекта":  deadline,
+            "Полное название":  col,
+        })
     return projects
 
 
@@ -227,13 +241,7 @@ def find_risks(task_rows):
 
         entry = dict(project=project, employee=employee, task=task, deadline=deadline_str)
 
-        # Просрочено по эмодзи (даже без разбора даты)
-        if status == "просрочено":
-            risks.append({**entry, "type": "overdue", "days": None})
-            seen.add(key)
-            continue
-
-        # Разбираем дату дедлайна
+        # Риск определяется ТОЛЬКО по дате дедлайна, не по эмодзи
         deadline = None
         for fmt in ("%d.%m.%Y", "%Y-%m-%d", "%d/%m/%Y", "%d.%m.%y"):
             try:
