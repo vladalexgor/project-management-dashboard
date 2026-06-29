@@ -159,17 +159,10 @@ def build_context(latest, changes):
 # ──────────────────────────────────────────────────────────────
 
 def analyze_with_gemini(context):
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
 
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-    model = genai.GenerativeModel(
-        model_name="gemini-2.0-flash",
-        system_instruction=(
-            "Ты — аналитик инженерного проектного бюро. "
-            "Отвечай строго валидным JSON без markdown-обёртки и лишнего текста. "
-            "Опирайся только на предоставленные данные."
-        ),
-    )
+    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
     prompt = f"""Проанализируй данные реестра и подготовь отчёт к утренней планёрке.
 
@@ -187,7 +180,17 @@ def analyze_with_gemini(context):
   "meeting_agenda": ["пункт 1","пункт 2","пункт 3"]
 }}"""
 
-    response = model.generate_content(prompt)
+    response = client.models.generate_content(
+        model="gemini-1.5-flash",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            system_instruction=(
+                "Ты — аналитик инженерного проектного бюро. "
+                "Отвечай строго валидным JSON без markdown-обёртки и лишнего текста. "
+                "Опирайся только на предоставленные данные."
+            ),
+        ),
+    )
     raw = response.text.strip()
 
     # Убираем возможную markdown-обёртку
