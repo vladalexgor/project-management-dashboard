@@ -418,8 +418,12 @@ def main():
                 print(f"  Gemini: готово ✓")
             else:
                 print("  Gemini: ошибка парсинга, переключаемся на rule-based")
+        except urllib.error.HTTPError as e:
+            body = e.read().decode("utf-8", errors="replace")
+            print(f"  Gemini HTTP {e.code}: {body[:500]}")
+            analysis = None
         except Exception as e:
-            print(f"  Gemini: ошибка — {e}, переключаемся на rule-based")
+            print(f"  Gemini: ошибка — {type(e).__name__}: {e}, переключаемся на rule-based")
             analysis = None
     else:
         print("  GEMINI_API_KEY не задан, используем rule-based анализ")
