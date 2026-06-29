@@ -162,7 +162,10 @@ def analyze_with_gemini(context):
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    client = genai.Client(
+        api_key=os.environ["GEMINI_API_KEY"],
+        http_options={"api_version": "v1"},
+    )
 
     prompt = f"""Проанализируй данные реестра и подготовь отчёт к утренней планёрке.
 
