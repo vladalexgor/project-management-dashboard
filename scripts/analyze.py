@@ -159,15 +159,16 @@ def build_context(latest, changes):
 # ──────────────────────────────────────────────────────────────
 
 def analyze_with_gemini(context):
-    from google import genai
-    from google.genai import types
-
-    client = genai.Client(
-        api_key=os.environ["GEMINI_API_KEY"],
-        http_options={"api_version": "v1"},
+    """Прямой HTTP-запрос к Gemini v1 API — без сторонних пакетов."""
+    api_key = os.environ["GEMINI_API_KEY"]
+    url = (
+        "https://generativelanguage.googleapis.com/v1/models/"
+        f"gemini-1.5-flash:generateContent?key={api_key}"
     )
 
-    prompt = f"""Проанализируй данные реестра и подготовь отчёт к утренней планёрке.
+    prompt = f"""Ты — аналитик инженерного проектного бюро. Отвечай строго валидным JSON без markdown-обёртки.
+
+Проанализируй данные реестра и подготовь отчёт к утренней планёрке.
 
 ДАННЫЕ:
 {context}
@@ -183,18 +184,20 @@ def analyze_with_gemini(context):
   "meeting_agenda": ["пункт 1","пункт 2","пункт 3"]
 }}"""
 
-    response = client.models.generate_content(
-        model="gemini-1.5-flash",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=(
-                "Ты — аналитик инженерного проектного бюро. "
-                "Отвечай строго валидным JSON без markdown-обёртки и лишнего текста. "
-                "Опирайся только на предоставленные данные."
-            ),
-        ),
+    payload = json.dumps({
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 4096},
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        url, data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
     )
-    raw = response.text.strip()
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        result = json.loads(resp.read())
+
+    raw = result["candidates"][0]["content"]["parts"][0]["text"].strip()
 
     # Убираем возможную markdown-обёртку
     if raw.startswith("```"):

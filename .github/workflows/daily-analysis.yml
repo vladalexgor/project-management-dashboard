@@ -22,9 +22,6 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
-        run: pip install google-genai
-
       - name: Run daily analysis + Telegram
         env:
           GEMINI_API_KEY:      ${{ secrets.GEMINI_API_KEY }}
