@@ -1,5 +1,5 @@
 """
-Ежедневный анализ данных через Claude API + Telegram-уведомление.
+Ежедневный анализ данных (правило-based, без внешних API) + Telegram-уведомление.
 Запускается в 9:00 МСК через GitHub Actions.
 Сохраняет: reports/YYYY-MM-DD.json и reports/latest_report.json
 """
@@ -10,9 +10,10 @@ import glob
 import urllib.request
 import urllib.parse
 from datetime import datetime, timezone, timedelta
-import anthropic
 
 MSK = timezone(timedelta(hours=3))
+
+OVERLOAD_THRESHOLD = 5   # задач "в работе" — считаем перегрузкой
 
 
 # ──────────────────────────────────────────────────────────────
@@ -56,7 +57,6 @@ def get_task(row):
 
 
 def row_key(r):
-    """Надёжный ключ с разделителем — исключает коллизии."""
     return f"{r.get('Проект', '')}|||{get_task(r)}|||{r.get('Сотрудник', '')}"
 
 
@@ -69,7 +69,6 @@ def detect_changes(snapshots):
 
     changes = []
 
-    # Новые и изменившиеся задачи
     for key, row in last.items():
         if key in first:
             old_s = first[key].get("Статус", "")
@@ -83,7 +82,6 @@ def detect_changes(snapshots):
                     "from":     old_s,
                     "to":       new_s,
                 })
-            # Отслеживаем перенос дедлайна — ранний red flag
             old_d = first[key].get("Дедлайн", "")
             new_d = row.get("Дедлайн", "")
             if old_d and new_d and old_d != new_d:
@@ -104,7 +102,6 @@ def detect_changes(snapshots):
                 "status":   row.get("Статус", ""),
             })
 
-    # Удалённые задачи
     for key in first:
         if key not in last:
             r = first[key]
@@ -119,93 +116,125 @@ def detect_changes(snapshots):
 
 
 # ──────────────────────────────────────────────────────────────
-# Claude API анализ
+# Правило-based анализ
 # ──────────────────────────────────────────────────────────────
 
-def build_context(latest, changes):
-    stats   = latest.get("stats", {})
-    risks   = latest.get("risks", [])
-    team    = latest.get("team", [])
-    total_r = len(risks)
+def analyze_rules(latest, changes):
+    stats     = latest.get("stats", {})
+    risks     = latest.get("risks", [])
+    team      = latest.get("team", [])
+    by_status = stats.get("by_status", {})
+    by_emp    = stats.get("by_employee", {})
 
-    # Выводим полное количество рисков чтобы Claude не думал что их 30
-    risk_note = f"(показано {min(30, total_r)} из {total_r})" if total_r > 30 else f"({total_r} шт.)"
+    overdue = [r for r in risks if r.get("type") == "overdue"]
+    urgent  = [r for r in risks if r.get("type") == "urgent"]
+    total   = latest.get("total_tasks", 0)
+    done    = by_status.get("завершено", 0)
+    wip     = by_status.get("в работе", 0)
 
-    return f"""
-Дата: {datetime.now(MSK).strftime('%d.%m.%Y, %A')}
-Задач в реестре: {latest.get('total_tasks', 0)}
-Сотрудников: {latest.get('total_employees', 0)}
-Проектов: {latest.get('total_projects', 0)}
+    # ── Перегруженные сотрудники ──────────────────────────────
+    overloaded = []
+    for name, emp_stats in sorted(by_emp.items(), key=lambda x: -x[1].get("в работе", 0)):
+        wip_count = emp_stats.get("в работе", 0)
+        if wip_count >= OVERLOAD_THRESHOLD:
+            overloaded.append(f"{name} — {wip_count} задач в работе")
 
-СТАТУСЫ:
-{json.dumps(stats.get('by_status', {}), ensure_ascii=False)}
+    # ── Риски для отчёта ─────────────────────────────────────
+    risk_items = []
+    for r in overdue[:10]:
+        risk_items.append({
+            "severity": "high",
+            "description": f"Просрочено: {r.get('project', '')} / {r.get('employee', '')} — {r.get('task', '')} (дедлайн {r.get('deadline', '')}, просрочено на {r.get('days', 0)} дн.)",
+            "recommendation": "Уточнить статус у ответственного, обновить срок или закрыть задачу.",
+        })
+    for r in urgent[:10]:
+        risk_items.append({
+            "severity": "medium",
+            "description": f"Срочно ({r.get('days', 0)} дн.): {r.get('project', '')} / {r.get('employee', '')} — {r.get('task', '')} (дедлайн {r.get('deadline', '')})",
+            "recommendation": "Проверить готовность, при необходимости перераспределить нагрузку.",
+        })
+    for name in overloaded:
+        risk_items.append({
+            "severity": "medium",
+            "description": f"Перегрузка: {name}",
+            "recommendation": "Рассмотреть перераспределение задач внутри команды.",
+        })
 
-ЗАГРУЗКА СОТРУДНИКОВ:
-{json.dumps(stats.get('by_employee', {}), ensure_ascii=False, indent=2)}
+    # ── Highlights ────────────────────────────────────────────
+    highlights = []
+    completed_today = [c for c in changes if c.get("type") == "status_change" and c.get("to") == "завершено"]
+    if completed_today:
+        highlights.append(f"За 24ч завершено задач: {len(completed_today)}")
+    new_tasks = [c for c in changes if c.get("type") == "new_task"]
+    if new_tasks:
+        highlights.append(f"Добавлено новых задач: {len(new_tasks)}")
+    deadline_shifts = [c for c in changes if c.get("type") == "deadline_change"]
+    if deadline_shifts:
+        highlights.append(f"Перенесено дедлайнов: {len(deadline_shifts)}")
+    if done > 0 and total > 0:
+        pct = round(done / total * 100)
+        highlights.append(f"Общий прогресс: {done} из {total} задач завершено ({pct}%)")
+    if not highlights:
+        highlights.append("Существенных изменений за 24 часа не зафиксировано.")
 
-ЗАГРУЗКА ПО ПРОЕКТАМ:
-{json.dumps(stats.get('by_project', {}), ensure_ascii=False)}
+    # ── Bottlenecks ───────────────────────────────────────────
+    bottlenecks = []
+    if overloaded:
+        bottlenecks.append(f"Перегружены: {', '.join(n.split(' —')[0] for n in overloaded[:3])}")
+    if len(overdue) > 3:
+        bottlenecks.append(f"{len(overdue)} просроченных задач требуют закрытия или переноса")
+    vacationers = [e["Сотрудник"] for e in team if e.get("Статус", "").lower() in ("отпуск", "больничный")]
+    if vacationers:
+        bottlenecks.append(f"Не в офисе: {', '.join(vacationers)}")
+    if not bottlenecks:
+        bottlenecks.append("Критических узких мест не обнаружено.")
 
-РИСКИ {risk_note}:
-{json.dumps(risks[:30], ensure_ascii=False, indent=2)}
+    # ── Week focus ────────────────────────────────────────────
+    if overdue:
+        week_focus = f"Закрыть {len(overdue)} просроченных задач и не допустить перехода {len(urgent)} срочных в просрочку."
+    elif urgent:
+        week_focus = f"Обеспечить выполнение {len(urgent)} задач с дедлайном до конца недели."
+    else:
+        week_focus = "Поддерживать текущий темп, контролировать нагрузку команды."
 
-ИЗМЕНЕНИЯ ЗА 24 ЧАСА ({len(changes)} шт.):
-{json.dumps(changes[:25], ensure_ascii=False, indent=2)}
+    # ── Meeting agenda ────────────────────────────────────────
+    agenda = []
+    if overdue:
+        projects_overdue = list({r.get("project", "") for r in overdue if r.get("project")})[:3]
+        agenda.append(f"Просроченные задачи ({len(overdue)} шт.) — {', '.join(projects_overdue)}")
+    if urgent:
+        projects_urgent = list({r.get("project", "") for r in urgent if r.get("project")})[:3]
+        agenda.append(f"Срочные задачи до конца недели ({len(urgent)} шт.) — {', '.join(projects_urgent)}")
+    if overloaded:
+        agenda.append(f"Перераспределение нагрузки: {', '.join(n.split(' —')[0] for n in overloaded[:2])}")
+    if completed_today:
+        agenda.append(f"Итоги: {len(completed_today)} задач закрыто за 24ч")
+    if not agenda:
+        agenda.append("Текущий статус проектов — плановое совещание")
+    agenda = agenda[:5]
 
-КОМАНДА:
-{json.dumps(team, ensure_ascii=False, indent=2)}
-""".strip()
+    # ── Summary ───────────────────────────────────────────────
+    now_str = datetime.now(MSK).strftime("%d.%m.%Y")
+    parts = [f"На {now_str}: {total} задач в реестре, {wip} в работе, {done} завершено."]
+    if overdue:
+        parts.append(f"Просрочено: {len(overdue)} задач.")
+    if urgent:
+        parts.append(f"Срочных (до 7 дней): {len(urgent)}.")
+    if overloaded:
+        parts.append(f"Перегружены: {', '.join(n.split(' —')[0] for n in overloaded[:3])}.")
+    if len(changes) > 0:
+        parts.append(f"За 24ч: {len(changes)} изменений.")
+    summary = " ".join(parts)
 
-
-def analyze_with_claude(context):
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=4096,
-        system=(
-            "Ты — аналитик инженерного проектного бюро. "
-            "Отвечай строго валидным JSON без markdown-обёртки и лишнего текста. "
-            "Опирайся только на предоставленные данные."
-        ),
-        messages=[{
-            "role": "user",
-            "content": f"""Проанализируй данные реестра и подготовь отчёт к утренней планёрке.
-
-ДАННЫЕ:
-{context}
-
-Верни JSON:
-{{
-  "summary": "3-4 предложения: ключевые итоги, главные риски, тренд",
-  "risks": [{{"severity":"high|medium","description":"...","recommendation":"..."}}],
-  "highlights": ["..."],
-  "bottlenecks": ["..."],
-  "week_focus": "На что сфокусироваться на этой неделе",
-  "overloaded_employees": ["имя — X задач"],
-  "meeting_agenda": ["пункт 1","пункт 2","пункт 3"]
-}}"""
-        }],
-    )
-
-    raw = message.content[0].text.strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
-
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError as e:
-        print(f"  [WARN] Ошибка парсинга JSON от Claude: {e}")
-        return {
-            "summary": "Анализ недоступен — ошибка парсинга ответа.",
-            "risks": [], "highlights": [], "bottlenecks": [],
-            "week_focus": raw[:300],
-            "overloaded_employees": [],
-            "meeting_agenda": [],
-        }
+    return {
+        "summary":              summary,
+        "risks":                risk_items,
+        "highlights":           highlights,
+        "bottlenecks":          bottlenecks,
+        "week_focus":           week_focus,
+        "overloaded_employees": overloaded,
+        "meeting_agenda":       agenda,
+    }
 
 
 # ──────────────────────────────────────────────────────────────
@@ -217,7 +246,6 @@ def send_telegram(token, chat_id, report):
     risks    = report.get("risks", [])
     overdue  = [r for r in risks if r.get("type") == "overdue"]
     urgent   = [r for r in risks if r.get("type") == "urgent"]
-    blocked  = [r for r in risks if r.get("type") == "blocked"]
 
     lines = [
         f"📊 *Утренний отчёт {report['date']}*",
@@ -225,7 +253,7 @@ def send_telegram(token, chat_id, report):
         analysis.get("summary", ""),
         "",
         f"📌 Задач в реестре: *{report.get('total_tasks', '—')}*",
-        f"🔴 Просрочено: *{len(overdue)}* | 🟡 Срочно: *{len(urgent)}* | ⏸ Заблокировано: *{len(blocked)}*",
+        f"🔴 Просрочено: *{len(overdue)}* | 🟡 Срочно: *{len(urgent)}*",
     ]
 
     if analysis.get("overloaded_employees"):
@@ -237,7 +265,7 @@ def send_telegram(token, chat_id, report):
     if analysis.get("meeting_agenda"):
         lines.append("")
         lines.append("📋 *Повестка планёрки:*")
-        for i, item in enumerate(analysis["meeting_agenda"][:3], 1):
+        for i, item in enumerate(analysis["meeting_agenda"][:4], 1):
             lines.append(f"  {i}. {item}")
 
     lines.append("")
@@ -277,7 +305,7 @@ def send_telegram(token, chat_id, report):
 def main():
     now_msk  = datetime.now(MSK)
     date_str = now_msk.strftime("%Y-%m-%d")
-    print(f"[{now_msk.isoformat()}] Ежедневный анализ...")
+    print(f"[{now_msk.isoformat()}] Ежедневный анализ (rule-based)...")
 
     latest = load_latest()
     if not latest:
@@ -290,10 +318,8 @@ def main():
     changes = detect_changes(snapshots)
     print(f"  Изменений: {len(changes)}")
 
-    context  = build_context(latest, changes)
-    print("  Отправка в Claude...")
-    analysis = analyze_with_claude(context)
-    print(f"  Готово: {analysis.get('summary', '')[:80]}...")
+    analysis = analyze_rules(latest, changes)
+    print(f"  Анализ готов: {analysis['summary'][:80]}...")
 
     report = {
         "date":            date_str,
@@ -316,13 +342,12 @@ def main():
             json.dump(report, f, ensure_ascii=False, indent=2)
     print(f"  Сохранено: reports/{date_str}.json")
 
-    # Telegram
     tg_token   = os.environ.get("TELEGRAM_BOT_TOKEN")
     tg_chat_id = os.environ.get("TELEGRAM_CHAT_ID")
     if tg_token and tg_chat_id:
         send_telegram(tg_token, tg_chat_id, report)
     else:
-        print("  Telegram: TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы — пропускаем")
+        print("  Telegram: токены не заданы — пропускаем")
 
 
 if __name__ == "__main__":
