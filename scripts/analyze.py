@@ -162,7 +162,7 @@ def analyze_with_gemini(context):
     """Прямой HTTP-запрос к Gemini v1 API — без сторонних пакетов."""
     api_key = os.environ["GEMINI_API_KEY"]
     url = (
-        "https://generativelanguage.googleapis.com/v1/models/"
+        "https://generativelanguage.googleapis.com/v1beta/models/"
         f"gemini-1.5-flash:generateContent?key={api_key}"
     )
 
