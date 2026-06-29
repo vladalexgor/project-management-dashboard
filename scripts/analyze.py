@@ -1,7 +1,8 @@
 """
-Ежедневный анализ данных (правило-based, без внешних API) + Telegram-уведомление.
+Ежедневный анализ данных через Google Gemini API + Telegram-уведомление.
 Запускается в 9:00 МСК через GitHub Actions.
 Сохраняет: reports/YYYY-MM-DD.json и reports/latest_report.json
+При ошибке API — fallback на rule-based анализ.
 """
 
 import json
@@ -116,7 +117,96 @@ def detect_changes(snapshots):
 
 
 # ──────────────────────────────────────────────────────────────
-# Правило-based анализ
+# Контекст для AI
+# ──────────────────────────────────────────────────────────────
+
+def build_context(latest, changes):
+    stats   = latest.get("stats", {})
+    risks   = latest.get("risks", [])
+    team    = latest.get("team", [])
+    total_r = len(risks)
+
+    risk_note = f"(показано {min(30, total_r)} из {total_r})" if total_r > 30 else f"({total_r} шт.)"
+
+    return f"""
+Дата: {datetime.now(MSK).strftime('%d.%m.%Y, %A')}
+Задач в реестре: {latest.get('total_tasks', 0)}
+Сотрудников: {latest.get('total_employees', 0)}
+Проектов: {latest.get('total_projects', 0)}
+
+СТАТУСЫ:
+{json.dumps(stats.get('by_status', {}), ensure_ascii=False)}
+
+ЗАГРУЗКА СОТРУДНИКОВ:
+{json.dumps(stats.get('by_employee', {}), ensure_ascii=False, indent=2)}
+
+ЗАГРУЗКА ПО ПРОЕКТАМ:
+{json.dumps(stats.get('by_project', {}), ensure_ascii=False)}
+
+РИСКИ {risk_note}:
+{json.dumps(risks[:30], ensure_ascii=False, indent=2)}
+
+ИЗМЕНЕНИЯ ЗА 24 ЧАСА ({len(changes)} шт.):
+{json.dumps(changes[:25], ensure_ascii=False, indent=2)}
+
+КОМАНДА:
+{json.dumps(team, ensure_ascii=False, indent=2)}
+""".strip()
+
+
+# ──────────────────────────────────────────────────────────────
+# Gemini AI анализ
+# ──────────────────────────────────────────────────────────────
+
+def analyze_with_gemini(context):
+    import google.generativeai as genai
+
+    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+    model = genai.GenerativeModel(
+        model_name="gemini-2.0-flash",
+        system_instruction=(
+            "Ты — аналитик инженерного проектного бюро. "
+            "Отвечай строго валидным JSON без markdown-обёртки и лишнего текста. "
+            "Опирайся только на предоставленные данные."
+        ),
+    )
+
+    prompt = f"""Проанализируй данные реестра и подготовь отчёт к утренней планёрке.
+
+ДАННЫЕ:
+{context}
+
+Верни JSON:
+{{
+  "summary": "3-4 предложения: ключевые итоги, главные риски, тренд",
+  "risks": [{{"severity":"high|medium","description":"...","recommendation":"..."}}],
+  "highlights": ["..."],
+  "bottlenecks": ["..."],
+  "week_focus": "На что сфокусироваться на этой неделе",
+  "overloaded_employees": ["имя — X задач"],
+  "meeting_agenda": ["пункт 1","пункт 2","пункт 3"]
+}}"""
+
+    response = model.generate_content(prompt)
+    raw = response.text.strip()
+
+    # Убираем возможную markdown-обёртку
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+
+    try:
+        return json.loads(raw), "gemini"
+    except json.JSONDecodeError as e:
+        print(f"  [WARN] Ошибка парсинга JSON от Gemini: {e}")
+        print(f"  Ответ: {raw[:200]}")
+        return None, "gemini_parse_error"
+
+
+# ──────────────────────────────────────────────────────────────
+# Fallback: правило-based анализ
 # ──────────────────────────────────────────────────────────────
 
 def analyze_rules(latest, changes):
@@ -132,25 +222,22 @@ def analyze_rules(latest, changes):
     done    = by_status.get("завершено", 0)
     wip     = by_status.get("в работе", 0)
 
-    # ── Перегруженные сотрудники ──────────────────────────────
     overloaded = []
     for name, emp_stats in sorted(by_emp.items(), key=lambda x: -x[1].get("в работе", 0)):
-        wip_count = emp_stats.get("в работе", 0)
-        if wip_count >= OVERLOAD_THRESHOLD:
-            overloaded.append(f"{name} — {wip_count} задач в работе")
+        if emp_stats.get("в работе", 0) >= OVERLOAD_THRESHOLD:
+            overloaded.append(f"{name} — {emp_stats['в работе']} задач в работе")
 
-    # ── Риски для отчёта ─────────────────────────────────────
     risk_items = []
     for r in overdue[:10]:
         risk_items.append({
             "severity": "high",
-            "description": f"Просрочено: {r.get('project', '')} / {r.get('employee', '')} — {r.get('task', '')} (дедлайн {r.get('deadline', '')}, просрочено на {r.get('days', 0)} дн.)",
+            "description": f"Просрочено: {r.get('project','')} / {r.get('employee','')} — {r.get('task','')} (дедлайн {r.get('deadline','')}, просрочено на {r.get('days',0)} дн.)",
             "recommendation": "Уточнить статус у ответственного, обновить срок или закрыть задачу.",
         })
     for r in urgent[:10]:
         risk_items.append({
             "severity": "medium",
-            "description": f"Срочно ({r.get('days', 0)} дн.): {r.get('project', '')} / {r.get('employee', '')} — {r.get('task', '')} (дедлайн {r.get('deadline', '')})",
+            "description": f"Срочно ({r.get('days',0)} дн.): {r.get('project','')} / {r.get('employee','')} — {r.get('task','')} (дедлайн {r.get('deadline','')})",
             "recommendation": "Проверить готовность, при необходимости перераспределить нагрузку.",
         })
     for name in overloaded:
@@ -160,7 +247,6 @@ def analyze_rules(latest, changes):
             "recommendation": "Рассмотреть перераспределение задач внутри команды.",
         })
 
-    # ── Highlights ────────────────────────────────────────────
     highlights = []
     completed_today = [c for c in changes if c.get("type") == "status_change" and c.get("to") == "завершено"]
     if completed_today:
@@ -172,24 +258,21 @@ def analyze_rules(latest, changes):
     if deadline_shifts:
         highlights.append(f"Перенесено дедлайнов: {len(deadline_shifts)}")
     if done > 0 and total > 0:
-        pct = round(done / total * 100)
-        highlights.append(f"Общий прогресс: {done} из {total} задач завершено ({pct}%)")
+        highlights.append(f"Общий прогресс: {done} из {total} задач завершено ({round(done/total*100)}%)")
     if not highlights:
         highlights.append("Существенных изменений за 24 часа не зафиксировано.")
 
-    # ── Bottlenecks ───────────────────────────────────────────
     bottlenecks = []
     if overloaded:
         bottlenecks.append(f"Перегружены: {', '.join(n.split(' —')[0] for n in overloaded[:3])}")
     if len(overdue) > 3:
         bottlenecks.append(f"{len(overdue)} просроченных задач требуют закрытия или переноса")
-    vacationers = [e["Сотрудник"] for e in team if e.get("Статус", "").lower() in ("отпуск", "больничный")]
+    vacationers = [e["Сотрудник"] for e in team if e.get("Статус","").lower() in ("отпуск","больничный")]
     if vacationers:
         bottlenecks.append(f"Не в офисе: {', '.join(vacationers)}")
     if not bottlenecks:
         bottlenecks.append("Критических узких мест не обнаружено.")
 
-    # ── Week focus ────────────────────────────────────────────
     if overdue:
         week_focus = f"Закрыть {len(overdue)} просроченных задач и не допустить перехода {len(urgent)} срочных в просрочку."
     elif urgent:
@@ -197,23 +280,18 @@ def analyze_rules(latest, changes):
     else:
         week_focus = "Поддерживать текущий темп, контролировать нагрузку команды."
 
-    # ── Meeting agenda ────────────────────────────────────────
     agenda = []
     if overdue:
-        projects_overdue = list({r.get("project", "") for r in overdue if r.get("project")})[:3]
-        agenda.append(f"Просроченные задачи ({len(overdue)} шт.) — {', '.join(projects_overdue)}")
+        agenda.append(f"Просроченные задачи ({len(overdue)} шт.) — {', '.join(list({r.get('project','') for r in overdue})[:3])}")
     if urgent:
-        projects_urgent = list({r.get("project", "") for r in urgent if r.get("project")})[:3]
-        agenda.append(f"Срочные задачи до конца недели ({len(urgent)} шт.) — {', '.join(projects_urgent)}")
+        agenda.append(f"Срочные задачи до конца недели ({len(urgent)} шт.) — {', '.join(list({r.get('project','') for r in urgent})[:3])}")
     if overloaded:
         agenda.append(f"Перераспределение нагрузки: {', '.join(n.split(' —')[0] for n in overloaded[:2])}")
     if completed_today:
         agenda.append(f"Итоги: {len(completed_today)} задач закрыто за 24ч")
     if not agenda:
         agenda.append("Текущий статус проектов — плановое совещание")
-    agenda = agenda[:5]
 
-    # ── Summary ───────────────────────────────────────────────
     now_str = datetime.now(MSK).strftime("%d.%m.%Y")
     parts = [f"На {now_str}: {total} задач в реестре, {wip} в работе, {done} завершено."]
     if overdue:
@@ -222,19 +300,18 @@ def analyze_rules(latest, changes):
         parts.append(f"Срочных (до 7 дней): {len(urgent)}.")
     if overloaded:
         parts.append(f"Перегружены: {', '.join(n.split(' —')[0] for n in overloaded[:3])}.")
-    if len(changes) > 0:
+    if changes:
         parts.append(f"За 24ч: {len(changes)} изменений.")
-    summary = " ".join(parts)
 
     return {
-        "summary":              summary,
+        "summary":              " ".join(parts),
         "risks":                risk_items,
         "highlights":           highlights,
         "bottlenecks":          bottlenecks,
         "week_focus":           week_focus,
         "overloaded_employees": overloaded,
-        "meeting_agenda":       agenda,
-    }
+        "meeting_agenda":       agenda[:5],
+    }, "rules"
 
 
 # ──────────────────────────────────────────────────────────────
@@ -246,9 +323,11 @@ def send_telegram(token, chat_id, report):
     risks    = report.get("risks", [])
     overdue  = [r for r in risks if r.get("type") == "overdue"]
     urgent   = [r for r in risks if r.get("type") == "urgent"]
+    engine   = report.get("analysis_engine", "")
+    engine_label = "🤖 Gemini AI" if engine == "gemini" else "📐 Авто"
 
     lines = [
-        f"📊 *Утренний отчёт {report['date']}*",
+        f"📊 *Утренний отчёт {report['date']}* {engine_label}",
         "",
         analysis.get("summary", ""),
         "",
@@ -282,8 +361,7 @@ def send_telegram(token, chat_id, report):
     }).encode("utf-8")
 
     req = urllib.request.Request(
-        url,
-        data=payload,
+        url, data=payload,
         headers={"Content-Type": "application/json"},
         method="POST",
     )
@@ -305,7 +383,7 @@ def send_telegram(token, chat_id, report):
 def main():
     now_msk  = datetime.now(MSK)
     date_str = now_msk.strftime("%Y-%m-%d")
-    print(f"[{now_msk.isoformat()}] Ежедневный анализ (rule-based)...")
+    print(f"[{now_msk.isoformat()}] Ежедневный анализ...")
 
     latest = load_latest()
     if not latest:
@@ -318,12 +396,35 @@ def main():
     changes = detect_changes(snapshots)
     print(f"  Изменений: {len(changes)}")
 
-    analysis = analyze_rules(latest, changes)
-    print(f"  Анализ готов: {analysis['summary'][:80]}...")
+    # Пробуем Gemini AI, при ошибке — fallback на правила
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    analysis, engine = None, "rules"
+
+    if gemini_key:
+        try:
+            context = build_context(latest, changes)
+            print("  Отправка в Gemini AI...")
+            analysis, engine = analyze_with_gemini(context)
+            if analysis:
+                print(f"  Gemini: готово ✓")
+            else:
+                print("  Gemini: ошибка парсинга, переключаемся на rule-based")
+        except Exception as e:
+            print(f"  Gemini: ошибка — {e}, переключаемся на rule-based")
+            analysis = None
+    else:
+        print("  GEMINI_API_KEY не задан, используем rule-based анализ")
+
+    if not analysis:
+        analysis, engine = analyze_rules(latest, changes)
+        print(f"  Rule-based анализ готов.")
+
+    print(f"  Engine: {engine} | {analysis.get('summary','')[:80]}...")
 
     report = {
         "date":            date_str,
         "generated_at":    now_msk.isoformat(),
+        "analysis_engine": engine,
         "snapshots_count": len(snapshots),
         "changes":         changes,
         "analysis":        analysis,
