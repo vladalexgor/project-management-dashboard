@@ -158,12 +158,43 @@ def build_context(latest, changes):
 # Gemini AI анализ
 # ──────────────────────────────────────────────────────────────
 
+def list_gemini_models(api_key):
+    """Возвращает список поддерживаемых моделей для данного ключа."""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+    req = urllib.request.Request(url, headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read())
+    models = [m["name"] for m in data.get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])]
+    return models
+
+
+def pick_gemini_model(api_key):
+    """Выбирает первую доступную flash-модель."""
+    preferred = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-001",
+                 "gemini-1.5-pro", "gemini-pro"]
+    try:
+        available = list_gemini_models(api_key)
+        print(f"  Доступные Gemini модели: {available[:5]}")
+        for name in preferred:
+            full = f"models/{name}"
+            if full in available:
+                return name
+        # Берём первую доступную
+        if available:
+            return available[0].replace("models/", "")
+    except Exception as e:
+        print(f"  ListModels ошибка: {e}")
+    return "gemini-1.5-flash"
+
+
 def analyze_with_gemini(context):
-    """Прямой HTTP-запрос к Gemini v1 API — без сторонних пакетов."""
+    """Прямой HTTP-запрос к Gemini API — без сторонних пакетов."""
     api_key = os.environ["GEMINI_API_KEY"]
+    model = pick_gemini_model(api_key)
+    print(f"  Используем модель: {model}")
     url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"gemini-1.5-flash:generateContent?key={api_key}"
+        f"https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{model}:generateContent?key={api_key}"
     )
 
     prompt = f"""Ты — аналитик инженерного проектного бюро. Отвечай строго валидным JSON без markdown-обёртки.
