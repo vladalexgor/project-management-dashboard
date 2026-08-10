@@ -1,9 +1,7 @@
 name: Ежедневный анализ (9:00 МСК)
 
 on:
-  schedule:
-    - cron: "0 6 * * *"       # 06:00 UTC = 09:00 МСК
-  workflow_dispatch:
+  workflow_dispatch:   # только ручной запуск (schedule отключён)
 
 concurrency:
   group: daily-analysis
