@@ -1,9 +1,7 @@
 name: Сбор данных (каждые 30 мин)
 
 on:
-  schedule:
-    - cron: "0,30 * * * *"
-  workflow_dispatch:
+  workflow_dispatch:   # только ручной запуск (schedule отключён)
 
 concurrency:
   group: collect-data
